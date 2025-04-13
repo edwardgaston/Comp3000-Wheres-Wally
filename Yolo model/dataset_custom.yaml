@@ -1,0 +1,6 @@
+train: D:\Coding Projects\Comp3000-Wheres-Wally\Yolo model\train
+val: D:\Coding Projects\Comp3000-Wheres-Wally\Yolo model\val
+
+
+nc: 1 # number of classes
+names: ['wally'] # class names
