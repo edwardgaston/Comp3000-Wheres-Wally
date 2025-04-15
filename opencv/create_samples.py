@@ -1,66 +1,97 @@
 import cv2
-import os
 import numpy as np
+import os
+import random
 
-# Paths
-positive_image_path = 'positives/wally.jpg'
-negatives_file = 'updated_negatives.txt'
-output_vec_file = 'positives.vec'
-num_samples = 2000
+# Paths to datasets
+neg_path = "negatives/"
+pos_path = "positives/"
+output_images_path = "augmented_dataset/images/"
+output_labels_path = "augmented_dataset/labels/"
 
-# Read negative images paths
-with open(negatives_file, 'r') as file:
-    negative_images = [line.strip() for line in file.readlines() if line.strip()]
+# Ensure output paths exist
+os.makedirs(output_images_path, exist_ok=True)
+os.makedirs(output_labels_path, exist_ok=True)
 
-# Debugging output: Print the first few paths to verify
-print("First few negative image paths:")
-for path in negative_images[:5]:
-    print(path)
+# List all negative and positive images
+neg_images = [os.path.join(neg_path, f) for f in os.listdir(neg_path) if f.endswith(('.jpg', '.png'))]
+pos_images = [os.path.join(pos_path, f) for f in os.listdir(pos_path) if f.endswith(('.jpg', '.png'))]
 
-# Load the positive image
-positive_image = cv2.imread(positive_image_path, cv2.IMREAD_UNCHANGED)
-if positive_image is None:
-    raise FileNotFoundError(f"Positive image not found: {positive_image_path}")
+# Transparency factor (0 = fully transparent, 1 = fully opaque)
+ALPHA = 0.9  # Adjust as needed for slight transparency
 
-positive_height, positive_width = positive_image.shape[:2]
+# Function to overlay an object onto a background with transparency
+def overlay_image(background, foreground):
+    bg_h, bg_w, _ = background.shape
+    fg_h, fg_w, _ = foreground.shape
 
-# Create samples
-samples = []
-for i in range(num_samples):
-    # Randomly select a negative image
-    negative_image_path = np.random.choice(negative_images).strip()
-    
-    # Debugging output
-    print(f"Attempting to read negative image: '{negative_image_path}'")
-    
-    # Check if the file exists
-    if not os.path.isfile(negative_image_path):
-        print(f"File does not exist: '{negative_image_path}'")
-        continue
-    
-    negative_image = cv2.imread(negative_image_path)
+    # Resize the positive image to fit within the negative image
+    scale = min(bg_w / fg_w, bg_h / fg_h) * random.uniform(0.05, 0.15)  # Reduced scale factor for smaller positives
+    new_w, new_h = int(fg_w * scale), int(fg_h * scale)
+    foreground = cv2.resize(foreground, (new_w, new_h))
 
-    if negative_image is None:
-        print(f"Warning: Negative image not found or cannot be read: '{negative_image_path}'")
-        continue
+    # Random position within the negative image
+    x_offset = random.randint(0, bg_w - new_w)
+    y_offset = random.randint(0, bg_h - new_h)
 
-    # Debugging output
-    print(f"Processing negative image: '{negative_image_path}'")
+    # Extract region from background where the positive image will be placed
+    roi = background[y_offset:y_offset+new_h, x_offset:x_offset+new_w]
 
-    # Randomly select a position to overlay the positive image
-    x_offset = np.random.randint(0, negative_image.shape[1] - positive_width)
-    y_offset = np.random.randint(0, negative_image.shape[0] - positive_height)
+    # Convert foreground to grayscale to create a mask
+    foreground_gray = cv2.cvtColor(foreground, cv2.COLOR_BGR2GRAY)
+    _, mask = cv2.threshold(foreground_gray, 1, 255, cv2.THRESH_BINARY)
 
-    # Overlay the positive image onto the negative image
-    sample = negative_image.copy()
-    sample[y_offset:y_offset+positive_height, x_offset:x_offset+positive_width] = positive_image
+    # Convert mask to 3 channels
+    mask_3ch = cv2.merge([mask, mask, mask])
 
-    # Save the sample
-    sample_path = f'samples/sample_{i}.jpg'
-    cv2.imwrite(sample_path, sample)
-    samples.append(sample_path)
+    # Apply transparency: Blend the positive image with the background
+    blended = cv2.addWeighted(roi, 1 - ALPHA, foreground, ALPHA, 0)
 
-# Save the samples to the .vec file
-with open(output_vec_file, 'w') as file:
-    for sample in samples:
-        file.write(f'{sample}\n')
+    # Use the mask to only apply the blended region
+    roi = np.where(mask_3ch == 255, blended, roi)
+
+    # Put the modified ROI back into the background
+    background[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = roi
+
+    # Return the updated background and bounding box in YOLO format
+    x_center = (x_offset + new_w / 2) / bg_w
+    y_center = (y_offset + new_h / 2) / bg_h
+    width = new_w / bg_w
+    height = new_h / bg_h
+
+    return background, (x_center, y_center, width, height)
+
+# Outer loop to repeat the dataset generation process
+num_iterations = 55  # Number of times to repeat the process
+for iteration in range(num_iterations):
+    print(f"Starting iteration {iteration + 1}/{num_iterations}...")
+
+    # Generate dataset
+    for i, neg_img_path in enumerate(neg_images):
+        background = cv2.imread(neg_img_path)
+        annotations = []
+
+        # Random number of positive images to overlay
+        num_positives = random.randint(1, 5)  # Overlay between 1 and 5 positive images
+
+        for _ in range(num_positives):
+            pos_img_path = random.choice(pos_images)
+            foreground = cv2.imread(pos_img_path, cv2.IMREAD_UNCHANGED)  # Load with transparency
+
+            background, bbox = overlay_image(background, foreground)
+            annotations.append(bbox)
+
+        # Save image with 'R' prefix
+        image_filename = f"Rimage_{iteration}_{i}.jpg"
+        cv2.imwrite(f"{output_images_path}/{image_filename}", background)
+
+        # Save annotations in YOLO format with 'R' prefix
+        label_filename = f"Rimage_{iteration}_{i}.txt"
+        with open(f"{output_labels_path}/{label_filename}", "w") as f:
+            for bbox in annotations:
+                x_center, y_center, width, height = bbox
+                f.write(f"0 {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}\n")  # YOLO format
+
+    print(f"Iteration {iteration + 1}/{num_iterations} complete!")
+
+print("Dataset augmentation complete!")
