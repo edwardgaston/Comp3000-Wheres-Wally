@@ -19,4 +19,4 @@ class ObjectDetectionController {
     }
 }
 
-export default new ObjectDetectionController();
+export default ObjectDetectionController;

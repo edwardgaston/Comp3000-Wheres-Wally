@@ -1,19 +1,20 @@
-const mongoose = require('mongoose');
-const dotenv = require('dotenv');
+// filepath: d:\Coding Projects\Comp3000-Wheres-Wally\website\backend\src\config\db.js
+import mongoose from "mongoose";
+import colors from "colors";
 
-dotenv.config();
+colors.enable(); // Enable colors for string formatting
 
 const connectDB = async () => {
     try {
-        await mongoose.connect(process.env.MONGODB_URI, {
+        const conn = await mongoose.connect(process.env.MONGODB_URI, {
             useNewUrlParser: true,
             useUnifiedTopology: true,
         });
-        console.log('MongoDB connected successfully');
+        console.log(`MongoDB Connected: ${conn.connection.host}`.cyan.underline);
     } catch (error) {
-        console.error('MongoDB connection failed:', error.message);
-        process.exit(1);
+        console.error(`Error: ${error.message}`.red.underline.bold);
+        process.exit(1); // Exit process with failure
     }
 };
 
-module.exports = connectDB;
+export default connectDB;

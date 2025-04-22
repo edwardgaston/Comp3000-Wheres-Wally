@@ -1,0 +1,7 @@
+train: D:\Coding Projects\Comp3000-Wheres-Wally\yolov11v2\train
+val: D:\Coding Projects\Comp3000-Wheres-Wally\yolov11v2\val
+test: D:\Coding Projects\Comp3000-Wheres-Wally\yolov11v2\test
+
+
+nc: 5
+names: ['Odlaw', 'Wally', 'Wenda', 'Wizard', 'Woof']

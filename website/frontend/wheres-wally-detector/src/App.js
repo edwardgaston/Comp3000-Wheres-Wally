@@ -3,6 +3,7 @@ import { Drawer, IconButton, Box, CssBaseline, Toolbar, AppBar, Typography } fro
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
+import UploadForm from './components/UploadForm'; // Import the UploadForm component
 
 const theme = createTheme(); // Default Material-UI theme
 
@@ -75,7 +76,8 @@ function App() {
           <Typography variant="h4" gutterBottom>
             Welcome to Where's Wally Detector
           </Typography>
-          {/* Add your components like UploadForm and DetectionResult here */}
+          {/* Add UploadForm Component */}
+          <UploadForm />
         </Box>
       </Box>
     </ThemeProvider>
