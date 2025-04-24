@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
-import { Box, Button, Typography, TextField } from '@mui/material';
+import { Box, Button, Typography, TextField, CircularProgress } from '@mui/material';
 import axios from 'axios';
 
 function UploadForm() {
   const [selectedFile, setSelectedFile] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
   const [processedImage, setProcessedImage] = useState(null);
-  const [detections, setDetections] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleFileChange = (event) => {
-    setSelectedFile(event.target.files[0]);
-    setError('');
-    setProcessedImage(null); // Reset the processed image
-    setDetections([]); // Reset detections
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewImage(URL.createObjectURL(file)); // Create a preview URL for the uploaded image
+      setError('');
+      setProcessedImage(null); // Reset the processed image
+    }
   };
 
   const handleUpload = async () => {
@@ -23,6 +27,9 @@ function UploadForm() {
 
     const formData = new FormData();
     formData.append('image', selectedFile);
+
+    setLoading(true); // Show the loading spinner
+    setPreviewImage(null); // Hide the preview image
 
     try {
       // Send the image to the backend
@@ -37,21 +44,21 @@ function UploadForm() {
 
       // Fetch the results using the scan ID
       const resultsResponse = await axios.get(`http://localhost:5001/results/${scan_id}`);
-      const { detections, processed_image_url } = resultsResponse.data;
+      const { processed_image_url } = resultsResponse.data;
 
-      console.log('Detections:', detections);
       console.log('Processed Image URL:', processed_image_url);
 
       // Construct the full URL for the processed image
       const fullImageUrl = `http://localhost:5001${processed_image_url}`;
       console.log('Full Processed Image URL:', fullImageUrl);
 
-      setDetections(detections);
-      setProcessedImage(fullImageUrl);
+      setProcessedImage(fullImageUrl); // Show the processed image
       setError('');
     } catch (err) {
       console.error('Error uploading image:', err.response || err.message);
       setError('Failed to process the image. Please try again.');
+    } finally {
+      setLoading(false); // Hide the loading spinner
     }
   };
 
@@ -60,31 +67,65 @@ function UploadForm() {
       <Typography variant="h5" gutterBottom>
         Upload an Image to Find Wally
       </Typography>
-      <TextField
-        type="file"
-        onChange={handleFileChange}
-        inputProps={{ accept: 'image/*' }}
-        sx={{ marginBottom: 2 }}
-      />
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={handleUpload}
-        sx={{ marginBottom: 2 }}
-      >
-        Find Wally
-      </Button>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2 }}>
+        <TextField
+          type="file"
+          onChange={handleFileChange}
+          inputProps={{ accept: 'image/*' }}
+          sx={{ marginBottom: 2, height: '56px' }} // Set height explicitly
+        />
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleUpload}
+          sx={{ marginBottom: 2, height: '56px' }} // Match the height of the TextField
+        >
+          Find Wally
+        </Button>
+      </Box>
       {error && <Typography color="error">{error}</Typography>}
-      {detections.length > 0 && (
+
+      {/* Show the preview image */}
+      {previewImage && !processedImage && !loading && (
         <Box sx={{ marginTop: 4 }}>
-          <Typography variant="h6">Detections:</Typography>
-          <pre>{JSON.stringify(detections, null, 2)}</pre>
+          <Typography variant="h6">Preview Image:</Typography>
+          <img
+            src={previewImage}
+            alt="Preview"
+            style={{
+              maxWidth: '90vw', // Limit width to 90% of the viewport width
+              maxHeight: '80vh', // Limit height to 80% of the viewport height
+              marginTop: 10,
+              objectFit: 'contain', // Ensure the image maintains its aspect ratio
+            }}
+          />
         </Box>
       )}
+
+      {/* Show the loading spinner */}
+      {loading && (
+        <Box sx={{ marginTop: 4 }}>
+          <CircularProgress />
+          <Typography variant="body1" sx={{ marginTop: 2 }}>
+            Processing the image...
+          </Typography>
+        </Box>
+      )}
+
+      {/* Show the processed image */}
       {processedImage && (
         <Box sx={{ marginTop: 4 }}>
           <Typography variant="h6">Processed Image:</Typography>
-          <img src={processedImage} alt="Processed" style={{ maxWidth: '100%', marginTop: 10 }} />
+          <img
+            src={processedImage}
+            alt="Processed"
+            style={{
+              maxWidth: '90vw', // Limit width to 90% of the viewport width
+              maxHeight: '80vh', // Limit height to 80% of the viewport height
+              marginTop: 10,
+              objectFit: 'contain', // Ensure the image maintains its aspect ratio
+            }}
+          />
         </Box>
       )}
     </Box>

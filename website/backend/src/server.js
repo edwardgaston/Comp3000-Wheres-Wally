@@ -17,6 +17,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // Database connection
 connectDB();
 
+
+
 // Routes
 app.use('/api/detections', objectDetectionRoutes);
 
